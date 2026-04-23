@@ -8,45 +8,60 @@ import time
 import glob
 import paho.mqtt.client as paho
 import json
-from gtts import gTTS
-from googletrans import Translator
 
-def on_publish(client,userdata,result):             #create function for callback
-    print("el dato ha sido publicado \n")
-    pass
+# ---------------- MQTT ----------------
+def on_publish(client, userdata, result):
+    print("Mensaje enviado correctamente")
 
 def on_message(client, userdata, message):
     global message_received
-    time.sleep(2)
-    message_received=str(message.payload.decode("utf-8"))
-    st.write(message_received)
+    time.sleep(1)
+    message_received = str(message.payload.decode("utf-8"))
+    st.success("Respuesta recibida: " + message_received)
 
-broker="broker.mqttdashboard.com"
-port=1883
-client1= paho.Client("camilo")
+broker = "broker.mqttdashboard.com"
+port = 1883
+client1 = paho.Client("nuevo_camilo")
 client1.on_message = on_message
 
+# ---------------- ESTILO ----------------
+def add_bg():
+    st.markdown(
+        """
+        <style>
+        .stApp {
+            background: linear-gradient(135deg, #1f1c2c, #928dab);
+            color: white;
+        }
+        h1, h2, h3 {
+            color: #ffdd57;
+            text-align: center;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
 
+add_bg()
 
-st.title("INTERFACES MULTIMODALES")
-st.subheader("CONTROL POR VOZ")
+# ---------------- INTERFAZ ----------------
+st.title("🎤 Control Inteligente por Voz")
+st.subheader("Habla y deja que el sistema responda")
 
-image = Image.open('voice_ctrl.jpg')
+# Imagen nueva
+image = Image.open('gritando.png')
+st.image(image, width=250)
 
-st.image(image, width=200)
+st.write("Presiona el botón y di lo que necesites 🚀")
 
-
-
-
-st.write("Toca el Botón y habla ")
-
-stt_button = Button(label=" Inicio ", width=200)
+# Botón de voz
+stt_button = Button(label="🎙️ Escuchar ahora", width=220)
 
 stt_button.js_on_event("button_click", CustomJS(code="""
     var recognition = new webkitSpeechRecognition();
-    recognition.continuous = true;
-    recognition.interimResults = true;
- 
+    recognition.continuous = false;
+    recognition.interimResults = false;
+
     recognition.onresult = function (e) {
         var value = "";
         for (var i = e.resultIndex; i < e.results.length; ++i) {
@@ -54,31 +69,36 @@ stt_button.js_on_event("button_click", CustomJS(code="""
                 value += e.results[i][0].transcript;
             }
         }
-        if ( value != "") {
+        if (value != "") {
             document.dispatchEvent(new CustomEvent("GET_TEXT", {detail: value}));
         }
     }
     recognition.start();
-    """))
+"""))
 
 result = streamlit_bokeh_events(
     stt_button,
     events="GET_TEXT",
-    key="listen",
+    key="voz",
     refresh_on_update=False,
     override_height=75,
-    debounce_time=0)
+    debounce_time=0
+)
 
+# ---------------- RESPUESTA ----------------
 if result:
     if "GET_TEXT" in result:
-        st.write(result.get("GET_TEXT"))
-        client1.on_publish = on_publish                            
-        client1.connect(broker,port)  
-        message =json.dumps({"Act1":result.get("GET_TEXT").strip()})
-        ret= client1.publish("voiceClientecamilo", message)
+        texto = result.get("GET_TEXT")
+        st.info("🗣️ Dijiste: " + texto)
 
-    
-    try:
-        os.mkdir("temp")
-    except:
-        pass
+        client1.on_publish = on_publish
+        client1.connect(broker, port)
+
+        message = json.dumps({"voz": texto.strip()})
+        client1.publish("voiceClientecamilo", message)
+
+# Carpeta temporal
+try:
+    os.mkdir("temp")
+except:
+    pass
